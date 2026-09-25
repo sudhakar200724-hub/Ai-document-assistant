@@ -1,0 +1,19 @@
+﻿services:
+  - type: web
+    name: ai-document-assistant
+    runtime: python
+    buildCommand: "./build.sh"
+    startCommand: "cd backend && uvicorn app:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: LLM_PROVIDER
+        value: demo
+      - key: FORCE_DEMO_MODE
+        value: "false"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
