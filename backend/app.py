@@ -65,13 +65,7 @@ app.include_router(audio_router)
 
 @app.get("/api/health")
 def health_check():
-    return {
-        "status": "healthy",
-        "app": "AI Document Intelligence & Learning Assistant",
-        "active_provider": config.active_provider,
-        "is_demo_mode": config.is_demo_mode(),
-        "version": "2.0.0"
-    }
+    return {"status": "healthy"}
 
 
 @app.get("/api/ai/status")
