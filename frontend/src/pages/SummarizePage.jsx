@@ -19,16 +19,24 @@ import {
 import { generateSummary, getDocumentSummaries, exportContent } from '../services/api';
 import AudioPlayer from '../components/common/AudioPlayer';
 
+const SUMMARIZER_LANGUAGES = [
+  { id: 'English', label: 'English' },
+  { id: 'Tamil', label: 'Tamil (தமிழ்)' },
+  { id: 'Hindi', label: 'Hindi (हिन्दी)' }
+];
+
 export default function SummarizePage({ activeDoc, selectedLanguage }) {
   const [summaryMode, setSummaryMode] = useState('standard'); // standard, time_based, personalized, business
   const [wordCount, setWordCount] = useState(200);
   const [customWordCount, setCustomWordCount] = useState(250);
   const [isCustomWordCount, setIsCustomWordCount] = useState(false);
-  const [formatStyle, setFormatStyle] = useState('Paragraph');
+  const [formatStyle, setFormatStyle] = useState('paragraph');
   const [keyPointsCount, setKeyPointsCount] = useState(5);
   const [userLevel, setUserLevel] = useState('Student');
   const [purpose, setPurpose] = useState('Quick Understanding');
-  const [language, setLanguage] = useState(selectedLanguage || 'English');
+  const [language, setLanguage] = useState(() => {
+    return ['English', 'Tamil', 'Hindi'].includes(selectedLanguage) ? selectedLanguage : 'English';
+  });
   const [isUserLanguageSet, setIsUserLanguageSet] = useState(false);
   const [timeLimit, setTimeLimit] = useState('2 minutes');
 
@@ -41,26 +49,34 @@ export default function SummarizePage({ activeDoc, selectedLanguage }) {
 
   useEffect(() => {
     if (!isUserLanguageSet && selectedLanguage) {
-      setLanguage(selectedLanguage);
+      if (['English', 'Tamil', 'Hindi'].includes(selectedLanguage)) {
+        setLanguage(selectedLanguage);
+      }
     }
   }, [selectedLanguage, isUserLanguageSet]);
 
   useEffect(() => {
-    if (activeDoc) {
-      loadPastSummaries();
+    setSummaryResult(null);
+    setError(null);
+    setPastSummaries([]);
+    if (activeDoc?.id) {
+      loadPastSummaries(activeDoc.id);
     }
-  }, [activeDoc]);
+  }, [activeDoc?.id]);
 
-  const loadPastSummaries = async () => {
-    if (!activeDoc) return;
+  const loadPastSummaries = async (targetDocId = activeDoc?.id) => {
+    if (!targetDocId) return;
     try {
-      const res = await getDocumentSummaries(activeDoc.id);
-      setPastSummaries(res.data);
-      if (res.data.length > 0 && !summaryResult) {
-        setSummaryResult(res.data[0]);
+      const res = await getDocumentSummaries(targetDocId);
+      const docsSummaries = res.data || [];
+      setPastSummaries(docsSummaries);
+      if (docsSummaries.length > 0) {
+        setSummaryResult(docsSummaries[0]);
+      } else {
+        setSummaryResult(null);
       }
     } catch (err) {
-      console.error(err);
+      console.error('Failed to load past summaries:', err);
     }
   };
 
@@ -87,7 +103,12 @@ export default function SummarizePage({ activeDoc, selectedLanguage }) {
         time_limit: summaryMode === 'time_based' ? timeLimit : null
       });
       setSummaryResult(res.data);
-      loadPastSummaries();
+      try {
+        const pastRes = await getDocumentSummaries(activeDoc.id);
+        setPastSummaries(pastRes.data || []);
+      } catch (e) {
+        // past summaries refresh ignore
+      }
     } catch (err) {
       console.error('Summary generation error:', err);
       const msg = err.response?.data?.detail || err.message || 'Failed to generate summary.';
@@ -131,7 +152,12 @@ export default function SummarizePage({ activeDoc, selectedLanguage }) {
 
   const userLevels = ['Beginner', 'Student', 'Researcher', 'Professional', 'Expert'];
   const purposes = ['Quick Understanding', 'Exam Preparation', 'Research', 'Presentation', 'Business', 'General Knowledge'];
-  const formats = ['Paragraph', 'Bullet points', 'Key takeaways', 'Executive summary'];
+  const formats = [
+    { id: 'paragraph', label: 'Paragraph' },
+    { id: 'bullet_points', label: 'Bullet points' },
+    { id: 'key_takeaways', label: 'Key takeaways' },
+    { id: 'executive_summary', label: 'Executive summary' }
+  ];
   const wordCountOptions = [50, 100, 200, 500];
   const timeLimits = ['30 seconds', '2 minutes', '5 minutes', '10 minutes'];
 
@@ -301,15 +327,15 @@ export default function SummarizePage({ activeDoc, selectedLanguage }) {
               <div className="grid grid-cols-2 gap-1.5">
                 {formats.map((f) => (
                   <button
-                    key={f}
-                    onClick={() => setFormatStyle(f)}
+                    key={f.id}
+                    onClick={() => setFormatStyle(f.id)}
                     className={`py-1.5 px-2 text-xs rounded-lg border transition-all text-center ${
-                      formatStyle === f
+                      formatStyle === f.id
                         ? 'border-pink-500 bg-pink-50/80 dark:bg-pink-950/50 text-pink-700 dark:text-pink-300 font-bold ring-1 ring-pink-500/20'
                         : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 hover:border-pink-300'
                     }`}
                   >
-                    {f}
+                    {f.label}
                   </button>
                 ))}
               </div>
@@ -328,18 +354,7 @@ export default function SummarizePage({ activeDoc, selectedLanguage }) {
                 }}
                 className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium"
               >
-                {[
-                  { id: 'English', label: 'English' },
-                  { id: 'Tamil', label: 'Tamil (தமிழ்)' },
-                  { id: 'Hindi', label: 'Hindi (हिन्दी)' },
-                  { id: 'Malayalam', label: 'Malayalam (മലയാളം)' },
-                  { id: 'Telugu', label: 'Telugu (తెలుగు)' },
-                  { id: 'Kannada', label: 'Kannada (ಕನ್ನಡ)' },
-                  { id: 'Tanglish', label: 'Tanglish (Romanized Tamil)' },
-                  { id: 'Spanish', label: 'Spanish' },
-                  { id: 'French', label: 'French' },
-                  { id: 'German', label: 'German' }
-                ].map((l) => (
+                {SUMMARIZER_LANGUAGES.map((l) => (
                   <option key={l.id} value={l.id}>{l.label}</option>
                 ))}
               </select>
@@ -392,6 +407,17 @@ export default function SummarizePage({ activeDoc, selectedLanguage }) {
                     <span className="px-2 py-0.5 rounded-md bg-fuchsia-50 dark:bg-fuchsia-950/60 text-fuchsia-700 dark:text-fuchsia-300 border border-fuchsia-200/50 dark:border-fuchsia-800/50">
                       Lang: {summaryResult.language}
                     </span>
+                    <span className="px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/50 dark:border-amber-800/50">
+                      Format: {
+                        summaryResult.format_style === 'bullet_points'
+                          ? 'Bullet points'
+                          : summaryResult.format_style === 'key_takeaways'
+                          ? 'Key takeaways'
+                          : summaryResult.format_style === 'executive_summary'
+                          ? 'Executive summary'
+                          : 'Paragraph'
+                      }
+                    </span>
                     <span className="text-slate-400 font-normal">
                       &bull; {summaryResult.word_count} words
                     </span>
@@ -443,9 +469,59 @@ export default function SummarizePage({ activeDoc, selectedLanguage }) {
                 />
 
                 {/* Main Content */}
-                <div className="prose dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 text-sm leading-relaxed whitespace-pre-line">
-                  {summaryResult.content}
-                </div>
+                {(() => {
+                  const isBullet = summaryResult.format_style === 'bullet_points' ||
+                    (summaryResult.bullet_points && summaryResult.bullet_points.length > 0) ||
+                    /^[•\-\*]\s+/m.test(summaryResult.content);
+
+                  if (isBullet) {
+                    let points = [];
+                    if (Array.isArray(summaryResult.bullet_points) && summaryResult.bullet_points.length > 0) {
+                      points = summaryResult.bullet_points;
+                    } else {
+                      points = summaryResult.content
+                        .split('\n')
+                        .map((l) => l.trim())
+                        .filter((l) => l.length > 0)
+                        .map((l) => l.replace(/^[•\-\*\d\.\)\s]+/, '').trim())
+                        .filter((l) => l.length > 0);
+                    }
+
+                    return (
+                      <ul className="space-y-3 my-2 list-none" role="list">
+                        {points.map((pt, idx) => (
+                          <li key={idx} className="flex items-start gap-3 text-slate-800 dark:text-slate-200 text-sm leading-relaxed">
+                            <span className="w-2 h-2 rounded-full bg-purple-600 dark:bg-purple-400 mt-2 shrink-0 select-none" />
+                            <span className="flex-1">{pt}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    );
+                  }
+
+                  if (summaryResult.format_style === 'key_takeaways') {
+                    const lines = summaryResult.content
+                      .split('\n')
+                      .map((l) => l.trim())
+                      .filter((l) => l.length > 0);
+                    return (
+                      <div className="space-y-2.5 my-2">
+                        {lines.map((line, idx) => (
+                          <div key={idx} className="p-3.5 rounded-xl bg-purple-50/40 dark:bg-slate-900/40 border border-purple-100/70 dark:border-slate-700/80 text-sm text-slate-800 dark:text-slate-200 leading-relaxed flex items-start gap-2.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-purple-500 mt-2 shrink-0" />
+                            <span className="flex-1">{line}</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="prose dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 text-sm leading-relaxed whitespace-pre-line space-y-3">
+                      {summaryResult.content}
+                    </div>
+                  );
+                })()}
 
                 {/* Source page references */}
                 {summaryResult.source_pages && (

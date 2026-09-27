@@ -50,6 +50,65 @@ class LLMService:
                 + document_text[-part:]
             )
 
+        clean_format = (format_style or "paragraph").strip().lower().replace(" ", "_").replace("-", "_")
+        if "bullet" in clean_format:
+            format_type = "bullet_points"
+            format_directive = f"""
+======================================================================
+CRITICAL OUTPUT FORMAT REQUIREMENT — BULLET POINTS:
+Generate the summary as bullet points.
+
+Each key point must be a separate bullet.
+Do not return one continuous paragraph.
+Do not combine all points into a paragraph.
+
+Return 5-10 concise bullet points depending on the document length.
+Each bullet point MUST start with '• '.
+
+{"Generate the bullet points completely in " + canonical_lang + "." if canonical_lang != "English" else ""}
+
+Example expected output format for 'content':
+• Point 1 in {canonical_lang}
+• Point 2 in {canonical_lang}
+• Point 3 in {canonical_lang}
+• Point 4 in {canonical_lang}
+• Point 5 in {canonical_lang}
+
+Do NOT return:
+"Point 1 Point 2 Point 3..." as one large continuous paragraph!
+======================================================================
+"""
+        elif "takeaway" in clean_format:
+            format_type = "key_takeaways"
+            format_directive = f"""
+======================================================================
+CRITICAL OUTPUT FORMAT REQUIREMENT — KEY TAKEAWAYS:
+Generate the summary structured as distinct, numbered Key Takeaways.
+Number each takeaway (e.g. '1. **[Takeaway Title]**: [Explanation]').
+{"Generate all takeaways completely in " + canonical_lang + "." if canonical_lang != "English" else ""}
+======================================================================
+"""
+        elif "exec" in clean_format:
+            format_type = "executive_summary"
+            format_directive = f"""
+======================================================================
+CRITICAL OUTPUT FORMAT REQUIREMENT — EXECUTIVE SUMMARY:
+Generate the summary structured as an Executive Briefing:
+- **Executive Overview**: High-level summary of core findings.
+- **Key Strategic Insights**: Core observations and evidence.
+- **Actionable Conclusion**: Practical takeaways for {purpose}.
+{"Generate the entire executive summary completely in " + canonical_lang + "." if canonical_lang != "English" else ""}
+======================================================================
+"""
+        else:
+            format_type = "paragraph"
+            format_directive = f"""
+======================================================================
+CRITICAL OUTPUT FORMAT REQUIREMENT — PARAGRAPH:
+Generate the summary as cohesive, well-crafted, continuous paragraphs written completely in {canonical_lang}.
+======================================================================
+"""
+
         return f"""{retry_notice}You are an expert AI Document Intelligence & Learning Assistant.
 
 ======================================================================
@@ -75,10 +134,17 @@ Task Specifications:
 - User Knowledge Level: {user_level} (Adapt the complexity, tone, and terminology accordingly)
 - Reading Purpose: {purpose} (Highlight what matters most for this goal)
 - Target Word Count: approximately {word_count} words in {canonical_lang}
-- Format Style: {format_style} (e.g. Paragraph, Bullet points, Key takeaways, Executive summary)
+- Format Style: {format_type}
 {f"- Time-based depth: tailored for a {time_limit} read" if time_limit else ""}
 
+{format_directive}
+
 CRITICAL GROUNDING & FIDELITY:
+- You must summarize ONLY the document content provided above.
+- Do NOT introduce information from your general knowledge.
+- Do NOT invent facts, sample scenarios, or external citations.
+- Do NOT use information from any other document.
+- If the provided document content is insufficient, state that clearly.
 - Preserve the meaning, important facts, numbers, names, dates, and technical information from the original document.
 - Do NOT shorten the content just because the target language is different.
 - Maintain the requested summary length/detail in {canonical_lang}.
@@ -86,6 +152,14 @@ CRITICAL GROUNDING & FIDELITY:
 Return ONLY a valid JSON object with the following schema:
 {{
   "content": "The formatted summary text written ENTIRELY in {canonical_lang}",
+  "format_style": "{format_type}",
+  "bullet_points": [
+    "Bullet 1 written in {canonical_lang}",
+    "Bullet 2 written in {canonical_lang}",
+    "Bullet 3 written in {canonical_lang}",
+    "Bullet 4 written in {canonical_lang}",
+    "Bullet 5 written in {canonical_lang}"
+  ],
   "key_points": [
     "Key point 1 written in {canonical_lang}",
     "Key point 2 written in {canonical_lang}",
@@ -102,6 +176,35 @@ Return ONLY a valid JSON object with the following schema:
 }}
 """
 
+    def _normalize_summary_result(self, result: Dict[str, Any], format_type: str, canonical_lang: str) -> Dict[str, Any]:
+        import re
+        result["format_style"] = format_type
+        content = (result.get("content") or "").strip()
+
+        if format_type == "bullet_points":
+            bullets = result.get("bullet_points")
+            if not isinstance(bullets, list) or len(bullets) == 0:
+                extracted = []
+                for line in content.splitlines():
+                    line_str = line.strip()
+                    if not line_str:
+                        continue
+                    cleaned = re.sub(r'^[•\-\*\d\.\)\s]+', '', line_str).strip()
+                    if cleaned:
+                        extracted.append(cleaned)
+                if not extracted and content:
+                    sents = [s.strip() for s in re.split(r'[\.\!\?]\s+', content) if len(s.strip()) > 5]
+                    extracted = sents if sents else [content]
+                bullets = extracted
+
+            clean_bullets = [re.sub(r'^[•\-\*\d\.\)\s]+', '', b).strip() for b in bullets if b and b.strip()]
+            result["bullet_points"] = clean_bullets
+            result["content"] = "\n".join(f"• {b}" for b in clean_bullets)
+        else:
+            result["bullet_points"] = None
+
+        return result
+
     async def generate_summary(
         self,
         document_text: str,
@@ -109,23 +212,34 @@ Return ONLY a valid JSON object with the following schema:
         purpose: str = "Quick Understanding",
         language: str = "English",
         word_count: int = 200,
-        format_style: str = "Paragraph",
+        format_style: str = "paragraph",
         time_limit: Optional[str] = None
     ) -> Dict[str, Any]:
         canonical_lang = normalize_language(language)
         provider = config.active_provider
 
+        clean_format = (format_style or "paragraph").strip().lower().replace(" ", "_").replace("-", "_")
+        if "bullet" in clean_format:
+            format_type = "bullet_points"
+        elif "takeaway" in clean_format:
+            format_type = "key_takeaways"
+        elif "exec" in clean_format:
+            format_type = "executive_summary"
+        else:
+            format_type = "paragraph"
+
         # Check if live AI is configured
         if provider == "demo" or not (config.gemini_api_key or config.openai_api_key):
-            return DemoIntelligenceService.generate_summary(
+            res = DemoIntelligenceService.generate_summary(
                 text=document_text,
                 user_level=user_level,
                 purpose=purpose,
                 language=canonical_lang,
                 word_count=word_count,
-                format_style=format_style,
+                format_style=format_type,
                 time_limit=time_limit
             )
+            return self._normalize_summary_result(res, format_type, canonical_lang)
 
         # Live LLM provider path
         prompt = self._build_summary_prompt(
@@ -134,7 +248,7 @@ Return ONLY a valid JSON object with the following schema:
             purpose=purpose,
             language=canonical_lang,
             word_count=word_count,
-            format_style=format_style,
+            format_style=format_type,
             time_limit=time_limit,
             is_retry=False
         )
@@ -143,7 +257,7 @@ Return ONLY a valid JSON object with the following schema:
         parsed = self._extract_json(response_text)
 
         if parsed and "content" in parsed and self.validate_language_output(parsed["content"], canonical_lang):
-            return parsed
+            return self._normalize_summary_result(parsed, format_type, canonical_lang)
 
         # Validation failed or bad JSON: retry once with escalated prompt
         print(f"[LLM SUMMARY] Output validation failed for language '{canonical_lang}'. Retrying once with escalated prompt...")
@@ -153,7 +267,7 @@ Return ONLY a valid JSON object with the following schema:
             purpose=purpose,
             language=canonical_lang,
             word_count=word_count,
-            format_style=format_style,
+            format_style=format_type,
             time_limit=time_limit,
             is_retry=True
         )
@@ -162,48 +276,66 @@ Return ONLY a valid JSON object with the following schema:
         parsed_retry = self._extract_json(response_retry)
 
         if parsed_retry and "content" in parsed_retry and self.validate_language_output(parsed_retry["content"], canonical_lang):
-            return parsed_retry
+            return self._normalize_summary_result(parsed_retry, format_type, canonical_lang)
 
         # If LLM still fails after retry, use the native multilingual generation engine
         print(f"[LLM SUMMARY] LLM failed language validation after retry. Falling back to native multilingual engine.")
-        return DemoIntelligenceService.generate_summary(
+        demo_res = DemoIntelligenceService.generate_summary(
             text=document_text,
             user_level=user_level,
             purpose=purpose,
             language=canonical_lang,
             word_count=word_count,
-            format_style=format_style,
+            format_style=format_type,
             time_limit=time_limit
         )
+        return self._normalize_summary_result(demo_res, format_type, canonical_lang)
 
     async def explain_concept(
         self,
         concept: str,
         document_text: str,
         user_level: str = "Student",
-        language: str = "English"
+        language: str = "English",
+        is_real_doc: bool = True
     ) -> Dict[str, Any]:
-        provider = config.active_provider
-        if provider == "demo" or not (config.gemini_api_key or config.openai_api_key):
-            return DemoIntelligenceService.explain_concept(concept, document_text, user_level, language)
+        canonical_lang = normalize_language(language)
+        refusal_msg = "இந்த ஆவணத்தில் இந்தக் கேள்விக்கான போதுமான தகவல் இல்லை." if canonical_lang == "Tamil" else "The document does not contain enough information to answer this question."
 
-        prompt = f"""
-You are an expert tutor. Explain the concept "{concept}" grounded in the document context.
-Document excerpt:
-\"\"\"{document_text[:5000]}\"\"\"
+        prompt = f"""You are a document-grounded explanation assistant.
 
-Specifications:
-- User level: {user_level}
-- Language: {language} (if Tanglish, write Tamil words in English letters)
+SELECTED DOCUMENT:
+\"\"\"{document_text[:6000]}\"\"\"
 
-Return a JSON object:
+USER CONCEPT / QUESTION:
+"{concept}"
+
+TARGET LANGUAGE:
+{canonical_lang}
+
+EXPLANATION DEPTH:
+{user_level}
+
+RULES:
+1. Answer ONLY the user's actual concept/question based strictly on the selected document.
+2. Use ONLY facts directly mentioned in the selected document. Do not invent facts or use outside knowledge.
+3. Do not use another document. Do not generate a generic summary. Do not reuse a previous answer.
+4. Acronyms & Short Terms: Recognize document-defined acronyms (e.g. DL for Deep Learning, ML for Machine Learning, AI for Artificial Intelligence). Follow the document's definitions.
+5. Question Intent: Differentiate between definition questions ("What is DL?", "DL"), mechanism questions ("How does DL work?"), advantage questions ("What are the advantages of DL?"), purpose questions ("What is the main purpose of DL?"), and comparison questions ("What is the difference between ML and DL?"). Give specific answers reflecting the exact question angle.
+6. If the document does not provide enough information to answer the question, say exactly:
+   "{refusal_msg}"
+7. Target Language Enforcement: Write natural, fluent, and grammatical {canonical_lang}.
+   - If {canonical_lang} is Tamil: The explanation MUST be written completely and naturally in Tamil. Do NOT mix English sentences into Tamil. Technical abbreviations/proper names (e.g. DL, AI, ML, CNN, ChatGPT, Claude) can remain in Latin script.
+8. Difficult Terms: Identify 2-3 genuine technical terms from the document context. For each term, explain its meaning strictly based on the document in {canonical_lang}. Do NOT use placeholder text or generic descriptions. If no difficult terms exist, return an empty list.
+
+Generate these sections and return ONLY a valid JSON object:
 {{
   "concept": "{concept}",
-  "simple_explanation": "Simple clear explanation adapted to user level",
-  "real_world_example": "Vivid real world analogy/example",
-  "why_it_matters": "Why this concept is critical",
+  "simple_explanation": "Direct factual answer to the specific question in {canonical_lang}",
+  "real_world_example": "Context-specific application directly based on document facts in {canonical_lang} (or empty string if not enough information)",
+  "why_it_matters": "Direct significance based on document facts in {canonical_lang} (or empty string if not enough information)",
   "difficult_concepts_breakdown": [
-    {{"term": "Sub-concept", "explanation": "Brief breakdown"}}
+    {{"term": "Technical term from context", "explanation": "Meaning based on document in {canonical_lang}"}}
   ],
   "source_pages": [1]
 }}
@@ -211,9 +343,13 @@ Return a JSON object:
         response_text = await self._call_llm(prompt)
         parsed = self._extract_json(response_text)
         if parsed and "simple_explanation" in parsed:
+            # Clean up concept if needed
+            parsed["concept"] = concept
+            if "source_pages" not in parsed or not parsed["source_pages"]:
+                parsed["source_pages"] = [1]
             return parsed
 
-        return DemoIntelligenceService.explain_concept(concept, document_text, user_level, language)
+        return DemoIntelligenceService.explain_concept(concept, document_text, user_level, canonical_lang)
 
     async def paraphrase(
         self,
@@ -284,14 +420,16 @@ Rules:
                 f"- Do NOT return sentences in the source language."
             )
 
-        return f"""{retry_notice}You are an expert professional translator.
+        return f"""{retry_notice}You are a translation system.
+Translate the COMPLETE input text{src_phrase} to the target language.
+Target language: {canonical}
+Preserve the original meaning, facts, numbers, dates, and technical terms.
+Do NOT summarize.
+Do NOT explain.
+Do NOT add introductory or concluding remarks.
+Do NOT mix source and target languages.
+Return ONLY the translated text.
 
-Translate the complete input{src_phrase} into {canonical}.
-Preserve the original meaning, names, numbers, dates, technical information, and formatting where possible.
-Do not summarize.
-Do not explain.
-Return only the translated content.
-Do not mix the source language with the target language unless a proper noun, URL, code, formula, or unavoidable technical term must remain unchanged.
 {script_instruction}
 
 Content to translate:
@@ -421,7 +559,7 @@ Target Language: {language} (If Tanglish, write in Tamil language using English 
 
 CRITICAL GROUNDING RULES:
 1. If the requested information is NOT contained in the excerpts above, you MUST answer EXACTLY:
-   "The requested information was not found in the uploaded document."
+   "The document does not contain enough information to answer this question."
 2. Do NOT speculate or hallucinate outside the provided text.
 3. Every factual assertion should cite the relevant page number in parentheses like (Page 2).
 
@@ -568,16 +706,27 @@ Return a valid JSON:
         provider = config.active_provider
         try:
             if provider == "gemini" and config.gemini_api_key:
-                # Call Gemini API
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={config.gemini_api_key}"
-                payload = {
-                    "contents": [{"parts": [{"text": prompt}]}],
-                    "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2048}
-                }
-                res = await self.http_client.post(url, json=payload)
-                if res.status_code == 200:
-                    data = res.json()
-                    return data["candidates"][0]["content"]["parts"][0]["text"]
+                # Call Gemini API using active supported models
+                models_to_try = ["gemini-2.5-flash-lite", "gemini-flash-lite-latest", "gemma-4-26b-a4b-it"]
+                for model in models_to_try:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={config.gemini_api_key}"
+                    payload = {
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2048}
+                    }
+                    try:
+                        res = await self.http_client.post(url, json=payload, timeout=20.0)
+                        if res.status_code == 200:
+                            data = res.json()
+                            candidates = data.get("candidates", [])
+                            if candidates and "content" in candidates[0]:
+                                parts = candidates[0]["content"].get("parts", [])
+                                if parts and "text" in parts[0]:
+                                    return parts[0]["text"]
+                        else:
+                            print(f"[GEMINI CALL ERROR] Model {model} status {res.status_code}")
+                    except Exception as me:
+                        print(f"[GEMINI CALL EXCEPTION] Model {model}: {me}")
             elif provider == "openai" and config.openai_api_key:
                 # Call OpenAI API
                 url = "https://api.openai.com/v1/chat/completions"
@@ -587,7 +736,7 @@ Return a valid JSON:
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.2
                 }
-                res = await self.http_client.post(url, json=payload, headers=headers)
+                res = await self.http_client.post(url, json=payload, headers=headers, timeout=20.0)
                 if res.status_code == 200:
                     data = res.json()
                     return data["choices"][0]["message"]["content"]

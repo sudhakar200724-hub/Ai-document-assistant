@@ -16,12 +16,11 @@ from api.routes_paraphrase import router as paraphrase_router
 from api.routes_translate import router as translate_router
 from api.routes_chat import router as chat_router
 from api.routes_study import router as study_router
-from api.routes_research import router as research_router
 from api.routes_compare import router as compare_router
-from api.routes_concept_map import router as concept_map_router
 from api.routes_export import router as export_router
 from api.routes_settings import router as settings_router
 from api.routes_history import router as history_router
+from api.routes_audio import router as audio_router
 
 
 @asynccontextmanager
@@ -57,12 +56,11 @@ app.include_router(paraphrase_router)
 app.include_router(translate_router)
 app.include_router(chat_router)
 app.include_router(study_router)
-app.include_router(research_router)
 app.include_router(compare_router)
-app.include_router(concept_map_router)
 app.include_router(export_router)
 app.include_router(settings_router)
 app.include_router(history_router)
+app.include_router(audio_router)
 
 
 @app.get("/api/health")

@@ -8,9 +8,7 @@ import {
   Languages,
   MessageSquare,
   GraduationCap,
-  Microscope,
   GitCompare,
-  Network,
   History,
   Settings,
   ChevronRight,
@@ -28,9 +26,7 @@ export default function Sidebar({ activeTab, setActiveTab, docCount = 0, isDemoM
     { id: 'translate', label: 'Translate', icon: Languages },
     { id: 'chat', label: 'Document Chat', icon: MessageSquare },
     { id: 'study', label: 'Study Mode', icon: GraduationCap },
-    { id: 'research', label: 'Research Mode', icon: Microscope },
     { id: 'compare', label: 'Compare Docs', icon: GitCompare },
-    { id: 'concept_map', label: 'Concept Map', icon: Network },
     { id: 'history', label: 'History', icon: History },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
@@ -84,23 +80,11 @@ export default function Sidebar({ activeTab, setActiveTab, docCount = 0, isDemoM
       hoverText: 'hover:text-teal-600 dark:hover:text-teal-400',
       badge: 'bg-teal-100 text-teal-700 dark:bg-teal-900/60 dark:text-teal-300'
     },
-    research: {
-      activeBg: 'bg-indigo-50/90 dark:bg-indigo-950/50 text-indigo-800 dark:text-indigo-300 font-semibold shadow-xs border-l-2 border-indigo-500 dark:border-indigo-400',
-      iconActive: 'text-indigo-600 dark:text-indigo-400',
-      hoverText: 'hover:text-indigo-600 dark:hover:text-indigo-400',
-      badge: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300'
-    },
     compare: {
       activeBg: 'bg-orange-50/90 dark:bg-orange-950/50 text-orange-800 dark:text-orange-300 font-semibold shadow-xs border-l-2 border-orange-500 dark:border-orange-400',
       iconActive: 'text-orange-600 dark:text-orange-400',
       hoverText: 'hover:text-orange-600 dark:hover:text-orange-400',
       badge: 'bg-orange-100 text-orange-700 dark:bg-orange-900/60 dark:text-orange-300'
-    },
-    concept_map: {
-      activeBg: 'bg-pink-50/90 dark:bg-pink-950/50 text-pink-800 dark:text-pink-300 font-semibold shadow-xs border-l-2 border-pink-500 dark:border-pink-400',
-      iconActive: 'text-pink-600 dark:text-pink-400',
-      hoverText: 'hover:text-pink-600 dark:hover:text-pink-400',
-      badge: 'bg-pink-100 text-pink-700 dark:bg-pink-900/60 dark:text-pink-300'
     },
     history: {
       activeBg: 'bg-slate-100/90 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-semibold shadow-xs border-l-2 border-blue-500 dark:border-blue-400',

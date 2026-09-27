@@ -30,6 +30,9 @@ export const explainConcept = (data) => api.post('/explain', data);
 export const paraphraseText = (data) => api.post('/paraphrase', data);
 export const translateText = (data) => api.post('/translate', data);
 
+// Audio TTS
+export const synthesizeSpeech = (data) => api.post('/audio/tts', data, { responseType: 'blob' });
+
 // Chat
 export const askDocument = (data) => api.post('/chat', data);
 export const getChatHistory = (docId, sessionId = 'default') => api.get(`/chat/history/${docId}?session_id=${sessionId}`);
@@ -40,14 +43,8 @@ export const generateStudyMaterial = (data) => api.post('/study/generate', data)
 export const submitQuiz = (data) => api.post('/study/quiz/submit', data);
 export const getQuizHistory = (docId) => api.get(`/study/quiz/history/${docId}`);
 
-// Research Mode
-export const getResearchAnalysis = (docId) => api.get(`/research/${docId}`);
-
 // Compare
 export const compareDocuments = (data) => api.post('/compare', data);
-
-// Concept Map
-export const getConceptMap = (docId) => api.get(`/concept-map/${docId}`);
 
 // Export
 export const exportContent = async (title, content, format, docTitle) => {

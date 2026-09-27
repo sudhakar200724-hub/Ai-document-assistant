@@ -7,7 +7,6 @@ import {
   Languages,
   MessageSquare,
   GraduationCap,
-  Microscope,
   GitCompare,
   Upload,
   ArrowUpRight,
@@ -46,7 +45,6 @@ export default function DashboardPage({ setActiveTab, activeDoc, setActiveDocId 
     { id: 'translate', title: 'Translate', desc: 'English, Tamil, Tanglish & Hindi', icon: Languages, color: 'from-cyan-500 via-blue-600 to-indigo-600' },
     { id: 'chat', title: 'Ask Document', desc: 'Grounded RAG with page citations', icon: MessageSquare, color: 'from-violet-500 via-purple-600 to-indigo-600' },
     { id: 'study', title: 'Study Mode', desc: 'Exam questions & interactive quiz', icon: GraduationCap, color: 'from-rose-500 via-pink-500 to-purple-600' },
-    { id: 'research', title: 'Research Mode', desc: 'Paper analysis: Problem, Method & Results', icon: Microscope, color: 'from-blue-600 via-indigo-600 to-violet-600' },
     { id: 'compare', title: 'Compare Docs', desc: 'Matrix comparison across 2+ documents', icon: GitCompare, color: 'from-fuchsia-600 via-purple-600 to-pink-600' },
   ];
 

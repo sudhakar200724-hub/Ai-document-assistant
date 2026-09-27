@@ -15,12 +15,15 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 SAMPLES_DIR.mkdir(parents=True, exist_ok=True)
 
-# Load root or backend .env
+# Load root, backend, or user .env
 ROOT_DIR = BASE_DIR.parent
-if (ROOT_DIR / ".env").exists():
-    load_dotenv(ROOT_DIR / ".env")
-elif (BASE_DIR / ".env").exists():
-    load_dotenv(BASE_DIR / ".env")
+for env_candidate in [
+    ROOT_DIR / ".env",
+    BASE_DIR / ".env",
+    Path("C:/Users/lenovo/ai-document-assistant/.env")
+]:
+    if env_candidate.exists():
+        load_dotenv(env_candidate, override=True)
 
 
 class AppConfig:

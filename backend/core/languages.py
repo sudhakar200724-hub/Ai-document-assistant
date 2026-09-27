@@ -105,6 +105,23 @@ def get_script_name(canonical_lang: str) -> str:
     return mapping.get(canonical_lang, f"{canonical_lang} script")
 
 
+def get_language_code(canonical_lang: str) -> str:
+    norm = normalize_language(canonical_lang)
+    mapping = {
+        LANG_ENGLISH: "en",
+        LANG_TAMIL: "ta",
+        LANG_HINDI: "hi",
+        LANG_MALAYALAM: "ml",
+        LANG_TELUGU: "te",
+        LANG_KANNADA: "kn",
+        LANG_TANGLISH: "tanglish",
+        LANG_SPANISH: "es",
+        LANG_FRENCH: "fr",
+        LANG_GERMAN: "de",
+    }
+    return mapping.get(norm, "en")
+
+
 def count_script_chars(text: str) -> Dict[str, int]:
     """Counts characters belonging to different scripts."""
     tamil = sum(1 for c in text if '\u0b80' <= c <= '\u0bff')

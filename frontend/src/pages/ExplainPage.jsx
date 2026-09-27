@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sparkles, HelpCircle, Lightbulb, Compass, AlertTriangle, RefreshCw, FileText, Check, Copy } from 'lucide-react';
 import { explainConcept } from '../services/api';
 
@@ -8,26 +8,41 @@ export default function ExplainPage({ activeDoc, selectedLanguage }) {
   const [language, setLanguage] = useState(selectedLanguage || 'English');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null);
   const [copied, setCopied] = useState(false);
 
-  // Suggested concepts based on typical docs
-  const sampleSuggestions = ['Transformer Architecture', 'Self-Attention Mechanism', 'Enterprise Data Drift', 'Okazaki Fragments', 'Mendelian Segregation'];
+  // Clear result and inputs when activeDoc changes so documents don't cross-contaminate
+  useEffect(() => {
+    setResult(null);
+    setErrorMessage(null);
+    setConceptInput('');
+  }, [activeDoc?.id]);
+
+  // Suggested concepts based on typical docs or active document
+  const sampleSuggestions = activeDoc?.title?.includes('AI_ML_DL') || activeDoc?.filename?.includes('AI_ML_DL')
+    ? ['DL', 'What is DL?', 'How does DL work?', 'What are the advantages of DL?', 'Difference between ML and DL']
+    : ['Transformer Architecture', 'Self-Attention Mechanism', 'Enterprise Data Drift', 'Okazaki Fragments', 'Mendelian Segregation'];
 
   const handleExplain = async (conceptToUse) => {
     const target = conceptToUse || conceptInput;
     if (!target.trim() || !activeDoc) return;
 
     setLoading(true);
+    setErrorMessage(null);
     try {
       const res = await explainConcept({
         document_id: activeDoc.id,
         concept_or_text: target.trim(),
+        question: target.trim(),
         user_level: userLevel,
+        depth: userLevel,
         language: language
       });
       setResult(res.data);
     } catch (err) {
       console.error(err);
+      const detail = err.response?.data?.detail || err.message || 'Failed to explain concept.';
+      setErrorMessage(detail);
     } finally {
       setLoading(false);
     }
@@ -138,6 +153,14 @@ export default function ExplainPage({ activeDoc, selectedLanguage }) {
           </div>
         </div>
       </div>
+
+      {/* Error Message */}
+      {errorMessage && (
+        <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-xs text-red-700 dark:text-red-300 flex items-center gap-2.5 animate-fade-in">
+          <AlertTriangle className="w-4 h-4 shrink-0 text-red-500" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
 
       {/* Explanation Cards Result */}
       {result && (

@@ -10,9 +10,7 @@ import ParaphrasePage from './pages/ParaphrasePage';
 import TranslatePage from './pages/TranslatePage';
 import ChatPage from './pages/ChatPage';
 import StudyPage from './pages/StudyPage';
-import ResearchPage from './pages/ResearchPage';
 import ComparePage from './pages/ComparePage';
-import ConceptMapPage from './pages/ConceptMapPage';
 import HistoryPage from './pages/HistoryPage';
 import SettingsPage from './pages/SettingsPage';
 
@@ -160,22 +158,10 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'research' && (
-            <ResearchPage
-              activeDoc={activeDoc}
-            />
-          )}
-
           {activeTab === 'compare' && (
             <ComparePage
               documents={documents}
               selectedLanguage={selectedLanguage}
-            />
-          )}
-
-          {activeTab === 'concept_map' && (
-            <ConceptMapPage
-              activeDoc={activeDoc}
             />
           )}
 

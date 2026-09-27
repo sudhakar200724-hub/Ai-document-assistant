@@ -56,10 +56,12 @@ async def translate_text(req: TranslateRequest):
 
     print(f"[API TRANSLATE SUCCESS] Target: '{target_lang}', Output length: {len(result)}")
 
+    from core.languages import get_language_code
     return TranslateResponse(
         source_text=text_to_translate,
         translated_text=result,
         target_language=target_lang,
+        target_language_code=get_language_code(target_lang),
         preserved_elements=["Headings", "Bullet points", "Paragraphs", "Numbering"]
     )
 

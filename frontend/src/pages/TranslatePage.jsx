@@ -39,9 +39,9 @@ const sourceLanguages = [
 ];
 
 const sampleTexts = {
-  English: 'Machine learning is a branch of artificial intelligence. It focuses on using data and algorithms to imitate the way that humans learn, gradually improving its accuracy.',
-  Tamil: 'இயந்திர கற்றல் என்பது செயற்கை நுண்ணறிவின் ஒரு முக்கியமான கிளையாகும். இந்த ஆய்வு நவீன தொழில்நுட்பத்தில் சிறந்த முடிவுகளை வழங்குகிறது.',
-  Hindi: 'मशीन लर्निंग आर्टिफिशियल इंटेलिजेंस (कृत्रिम बुद्धिमत्ता) की एक शाखा है। ट्रांसफॉर्मर मॉडल संरचना अटेंशन मैकेनिज्म पर आधारित है।'
+  English: 'Artificial intelligence is transforming many industries. Machine learning is a branch of artificial intelligence. It focuses on using data and algorithms to imitate the way that humans learn, gradually improving its accuracy.',
+  Tamil: 'செயற்கை நுண்ணறிவு பல தொழில்களை மாற்றி வருகிறது. இயந்திர கற்றல் என்பது செயற்கை நுண்ணறிவின் ஒரு முக்கியமான கிளையாகும்.',
+  Hindi: 'आर्टिफिशियल इंटेलिजेंस कई उद्योगों को बदल रहा है। मशीन लर्निंग आर्टिफिशियल इंटेलिजेंस (कृत्रिम बुद्धिमत्ता) की एक शाखा है।'
 };
 
 export default function TranslatePage({ activeDoc, documents = [], setActiveDocId }) {

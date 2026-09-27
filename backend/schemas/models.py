@@ -47,12 +47,24 @@ class SummaryRequest(BaseModel):
         raw = self.target_language or self.targetLanguage or self.language or "English"
         return normalize_language(raw)
 
+    def get_format_style(self) -> str:
+        raw = (self.format_style or "paragraph").strip().lower().replace(" ", "_").replace("-", "_")
+        if "bullet" in raw:
+            return "bullet_points"
+        if "takeaway" in raw:
+            return "key_takeaways"
+        if "exec" in raw:
+            return "executive_summary"
+        return "paragraph"
+
 
 class SummaryResponse(BaseModel):
     id: str
     document_id: str
     summary_type: str
     content: str
+    format_style: str = "paragraph"
+    bullet_points: Optional[List[str]] = None
     key_points: List[str]
     important_concepts: List[str]
     source_pages: List[int]
@@ -65,10 +77,21 @@ class SummaryResponse(BaseModel):
 
 # --- Explain Schemas ---
 class ExplainRequest(BaseModel):
-    document_id: str
-    concept_or_text: str
-    user_level: str = "Student"
-    language: str = "English"
+    document_id: Optional[str] = None
+    concept_or_text: Optional[str] = None
+    question: Optional[str] = None
+    concept: Optional[str] = None
+    user_level: Optional[str] = "Student"
+    depth: Optional[str] = None
+    language: Optional[str] = "English"
+
+    def get_query(self) -> str:
+        q = self.concept_or_text or self.question or self.concept or ""
+        return q.strip()
+
+    def get_depth(self) -> str:
+        d = self.depth or self.user_level or "Student"
+        return d.strip()
 
 
 class ExplainResponse(BaseModel):
@@ -105,24 +128,33 @@ class TranslateRequest(BaseModel):
     page_number: Optional[int] = None
     target_language: Optional[str] = None  # English, Tamil, Tanglish, Hindi, Malayalam, Telugu, Kannada, etc.
     targetLanguage: Optional[str] = None
+    target_lang: Optional[str] = None
+    tgt_lang: Optional[str] = None
     language: Optional[str] = None
     source_language: Optional[str] = "Auto"
     sourceLanguage: Optional[str] = None
+    source_lang: Optional[str] = None
+    src_lang: Optional[str] = None
 
     def get_target_language(self) -> str:
         from core.languages import normalize_language
-        raw = self.target_language or self.targetLanguage or self.language or "Tamil"
+        raw = self.target_language or self.targetLanguage or self.target_lang or self.tgt_lang or self.language or "Tamil"
         return normalize_language(raw)
 
     def get_source_language(self) -> str:
-        raw = self.source_language or self.sourceLanguage or "Auto"
-        return raw.strip()
+        from core.languages import normalize_language
+        raw = self.source_language or self.sourceLanguage or self.source_lang or self.src_lang or "Auto"
+        cleaned = raw.strip()
+        if cleaned.lower() == "auto":
+            return "Auto"
+        return normalize_language(cleaned)
 
 
 class TranslateResponse(BaseModel):
     source_text: str
     translated_text: str
     target_language: str
+    target_language_code: Optional[str] = "en"
     preserved_elements: List[str]
 
 
