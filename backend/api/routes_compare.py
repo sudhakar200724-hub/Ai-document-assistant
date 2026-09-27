@@ -16,24 +16,37 @@ async def compare_documents(req: CompareRequest):
     with get_db() as conn:
         cursor = conn.cursor()
         for doc_id in req.document_ids:
-            cursor.execute("SELECT id, title, clean_text FROM documents WHERE id = ?;", (doc_id,))
+            cursor.execute("SELECT id, title, raw_text, clean_text FROM documents WHERE id = ?;", (doc_id,))
             row = cursor.fetchone()
             if row:
+                text = (row["clean_text"] or row["raw_text"] or "").strip()
                 docs_data.append({
                     "id": row["id"],
                     "title": row["title"],
-                    "text": row["clean_text"][:4000]
+                    "text": text[:20000]
                 })
 
     if len(docs_data) < 2:
         raise HTTPException(status_code=404, detail="Could not find sufficient documents to compare.")
 
+    for d in docs_data:
+        if not d.get("text") or len(d["text"].strip()) < 10:
+            raise HTTPException(
+                status_code=400,
+                detail="Unable to compare because readable content could not be extracted from one of the selected documents."
+            )
+
     result = await llm_service.compare_documents(docs_data, req.language)
+
+    doc1_title = docs_data[0]["title"] if len(docs_data) > 0 else "Document 1"
+    doc2_title = docs_data[1]["title"] if len(docs_data) > 1 else "Document 2"
 
     return CompareResponse(
         comparison_matrix=result.get("comparison_matrix", []),
         similarities=result.get("similarities", []),
         differences=result.get("differences", []),
         unique_points=result.get("unique_points", {}),
-        overall_synthesis=result.get("overall_synthesis", "")
+        overall_synthesis=result.get("overall_synthesis", ""),
+        doc1_title=result.get("doc1_title") or doc1_title,
+        doc2_title=result.get("doc2_title") or doc2_title
     )

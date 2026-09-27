@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { GitCompare, Check, RefreshCw, FileText, Split, Sparkles } from 'lucide-react';
+import { GitCompare, Check, RefreshCw, FileText, Split, Sparkles, AlertCircle } from 'lucide-react';
 import { compareDocuments } from '../services/api';
 
 export default function ComparePage({ documents = [], selectedLanguage }) {
   const [selectedDocs, setSelectedDocs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [comparisonResult, setComparisonResult] = useState(null);
+  const [error, setError] = useState(null);
 
   const toggleDocSelection = (docId) => {
+    setComparisonResult(null);
+    setError(null);
     setSelectedDocs((prev) =>
       prev.includes(docId) ? prev.filter((id) => id !== docId) : [...prev, docId]
     );
@@ -16,6 +19,7 @@ export default function ComparePage({ documents = [], selectedLanguage }) {
   const handleCompare = async () => {
     if (selectedDocs.length < 2) return;
     setLoading(true);
+    setError(null);
     try {
       const res = await compareDocuments({
         document_ids: selectedDocs,
@@ -24,6 +28,8 @@ export default function ComparePage({ documents = [], selectedLanguage }) {
       setComparisonResult(res.data);
     } catch (err) {
       console.error(err);
+      const errMsg = err?.response?.data?.detail || err?.message || 'Comparison failed. Please check the documents and try again.';
+      setError(errMsg);
     } finally {
       setLoading(false);
     }
@@ -89,6 +95,14 @@ export default function ComparePage({ documents = [], selectedLanguage }) {
         </div>
       </div>
 
+      {/* Error Banner */}
+      {error && (
+        <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-700 dark:text-red-300 text-xs flex items-center gap-2 animate-fade-in">
+          <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
       {/* Comparison Results */}
       {comparisonResult && (
         <div className="space-y-6 animate-fade-in">
@@ -113,8 +127,8 @@ export default function ComparePage({ documents = [], selectedLanguage }) {
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-400 font-semibold">
                     <th className="pb-3 pr-4">Dimension</th>
-                    <th className="pb-3 px-4">Document 1</th>
-                    <th className="pb-3 pl-4">Document 2</th>
+                    <th className="pb-3 px-4 truncate max-w-[240px]">{comparisonResult.doc1_title || 'Document 1'}</th>
+                    <th className="pb-3 pl-4 truncate max-w-[240px]">{comparisonResult.doc2_title || 'Document 2'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -170,6 +184,28 @@ export default function ComparePage({ documents = [], selectedLanguage }) {
               </div>
             </div>
           </div>
+
+          {/* Unique Points */}
+          {comparisonResult.unique_points && Object.keys(comparisonResult.unique_points).length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {Object.entries(comparisonResult.unique_points).map(([docTitle, points], idx) => (
+                <div key={idx} className="p-5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 shadow-xs space-y-3">
+                  <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    Distinctive Points: {docTitle}
+                  </h3>
+                  <div className="space-y-2">
+                    {Array.isArray(points) && points.map((pt, pIdx) => (
+                      <div key={pIdx} className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
+                        <span>{pt}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

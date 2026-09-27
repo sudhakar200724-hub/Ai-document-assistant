@@ -1825,3 +1825,194 @@ class DemoIntelligenceService:
             "nodes": nodes,
             "edges": edges
         }
+
+    @staticmethod
+    def compare_documents(docs_data: List[Dict[str, str]], language: str = "English") -> Dict[str, Any]:
+        from core.languages import normalize_language, LANG_TAMIL, LANG_HINDI, LANG_TANGLISH
+        canonical_lang = normalize_language(language)
+
+        if not docs_data:
+            return {
+                "doc1_title": "Document 1",
+                "doc2_title": "Document 2",
+                "comparison_matrix": [],
+                "similarities": [],
+                "differences": [],
+                "unique_points": {},
+                "overall_synthesis": ""
+            }
+
+        doc1 = docs_data[0]
+        doc2 = docs_data[1] if len(docs_data) > 1 else docs_data[0]
+        doc1_title = doc1.get("title") or "Document 1"
+        doc2_title = doc2.get("title") or "Document 2"
+        doc1_text = (doc1.get("text") or "").strip()
+        doc2_text = (doc2.get("text") or "").strip()
+
+        # Helper to extract clean sentences
+        def extract_sentences(txt: str) -> List[str]:
+            splits = re.split(r'(?<=[.!?।\n])\s+', txt)
+            return [s.strip() for s in splits if len(s.strip()) >= 12 and not re.match(r'^(page\s+\d+|\d+)$', s.strip(), re.I)]
+
+        sents1 = extract_sentences(doc1_text) or [doc1_text[:300]]
+        sents2 = extract_sentences(doc2_text) or [doc2_text[:300]]
+
+        # Helper to find sentences matching keywords
+        def find_best_sentence(sents: List[str], keywords: List[str], fallback_idx: int = 0) -> str:
+            for s in sents:
+                s_lower = s.lower()
+                if any(kw in s_lower for kw in keywords):
+                    return s
+            return sents[fallback_idx] if len(sents) > fallback_idx else sents[0]
+
+        # 1. Core Methodology
+        method_kw = ["method", "approach", "algorithm", "model", "network", "technique", "architecture", "system", "process", "utiliz", "operat", "design"]
+        doc1_method = find_best_sentence(sents1, method_kw, 0)
+        doc2_method = find_best_sentence(sents2, method_kw, 0)
+
+        # 2. Key Concepts (extract top entities / acronyms)
+        def extract_concepts(txt: str, sents: List[str]) -> List[str]:
+            found = []
+            for m in re.finditer(r'\b[A-Z][a-zA-Z0-9_\-]+(?:\s+[A-Z][a-zA-Z0-9_\-]+)*\b', txt):
+                ent = m.group(0).strip()
+                if len(ent) >= 2 and ent not in {"The", "This", "That", "These", "Those", "Document", "Section", "Table", "Figure"} and ent not in found:
+                    found.append(ent)
+                    if len(found) >= 4:
+                        break
+            if len(found) < 3:
+                words = re.findall(r'\b[a-zA-Z]{4,}\b', txt.lower())
+                stopwords = {"this", "that", "with", "from", "have", "were", "been", "which", "their", "there", "about", "other", "into", "more", "some", "such", "than", "them", "then", "when", "where", "what", "also"}
+                freq = {}
+                for w in words:
+                    if w not in stopwords:
+                        freq[w] = freq.get(w, 0) + 1
+                for w, _ in sorted(freq.items(), key=lambda x: x[1], reverse=True):
+                    cap = w.capitalize()
+                    if cap not in found:
+                        found.append(cap)
+                    if len(found) >= 4:
+                        break
+            return found or ["Core Concepts"]
+
+        doc1_concepts = extract_concepts(doc1_text, sents1)
+        doc2_concepts = extract_concepts(doc2_text, sents2)
+
+        # 3. Dataset / Evidence
+        data_kw = ["data", "dataset", "corpus", "sample", "evidence", "input", "experiment", "benchmark", "parameter", "train", "test", "measure"]
+        doc1_data_sent = find_best_sentence(sents1, data_kw, min(1, len(sents1) - 1))
+        doc2_data_sent = find_best_sentence(sents2, data_kw, min(1, len(sents2) - 1))
+
+        # 4. Main Results
+        result_kw = ["result", "show", "demonstrat", "achiev", "perform", "find", "accurac", "effectiv", "improv", "indicat", "power", "lead", "breakthrough"]
+        doc1_result = find_best_sentence(sents1, result_kw, min(2, len(sents1) - 1))
+        doc2_result = find_best_sentence(sents2, result_kw, min(2, len(sents2) - 1))
+
+        # 5. Limitations
+        limit_kw = ["limit", "challeng", "constraint", "howev", "requir", "depend", "bottleneck", "risk", "complex", "difficult", "heavy", "cost", "bound"]
+        doc1_limit = find_best_sentence(sents1, limit_kw, min(len(sents1) // 2, len(sents1) - 1))
+        doc2_limit = find_best_sentence(sents2, limit_kw, min(len(sents2) // 2, len(sents2) - 1))
+
+        # 6. Conclusions
+        concl_kw = ["conclu", "summar", "overal", "final", "aim", "goal", "target", "futur", "therefor", "consequen"]
+        doc1_concl = find_best_sentence(sents1, concl_kw, len(sents1) - 1)
+        doc2_concl = find_best_sentence(sents2, concl_kw, len(sents2) - 1)
+
+        comparison_matrix = [
+            {
+                "aspect": "Core Methodology",
+                "doc1": f"{doc1_title}: {doc1_method}",
+                "doc2": f"{doc2_title}: {doc2_method}"
+            },
+            {
+                "aspect": "Key Concepts",
+                "doc1": f"{doc1_title}: Centered around {', '.join(doc1_concepts)}.",
+                "doc2": f"{doc2_title}: Centered around {', '.join(doc2_concepts)}."
+            },
+            {
+                "aspect": "Dataset / Evidence",
+                "doc1": f"{doc1_title}: {doc1_data_sent}",
+                "doc2": f"{doc2_title}: {doc2_data_sent}"
+            },
+            {
+                "aspect": "Main Results",
+                "doc1": f"{doc1_title}: {doc1_result}",
+                "doc2": f"{doc2_title}: {doc2_result}"
+            },
+            {
+                "aspect": "Limitations",
+                "doc1": f"{doc1_title}: {doc1_limit}",
+                "doc2": f"{doc2_title}: {doc2_limit}"
+            },
+            {
+                "aspect": "Conclusions",
+                "doc1": f"{doc1_title}: {doc1_concl}",
+                "doc2": f"{doc2_title}: {doc2_concl}"
+            }
+        ]
+
+        # Compute dynamic similarities
+        common_concepts = [c for c in doc1_concepts if any(c.lower() in d2_c.lower() or d2_c.lower() in c.lower() for d2_c in doc2_concepts)]
+        similarities = []
+        if common_concepts:
+            similarities.append(f"Both documents investigate overlapping subject matter connected to {', '.join(common_concepts)}.")
+        else:
+            similarities.append(f"Both '{doc1_title}' and '{doc2_title}' present systematic, document-grounded technical explanations.")
+
+        word_count1 = len(doc1_text.split())
+        word_count2 = len(doc2_text.split())
+        similarities.append(f"Both documents provide structured analytical prose (Document 1: ~{word_count1} words, Document 2: ~{word_count2} words).")
+        similarities.append(f"Both sources outline explicit concepts, operational mechanisms, and primary contextual objectives.")
+
+        # Compute dynamic differences
+        unique_to_1 = [c for c in doc1_concepts if not any(c.lower() in d2_c.lower() for d2_c in doc2_concepts)]
+        unique_to_2 = [c for c in doc2_concepts if not any(c.lower() in d1_c.lower() for d1_c in doc1_concepts)]
+
+        differences = []
+        if unique_to_1 and unique_to_2:
+            differences.append(f"'{doc1_title}' focuses specifically on {', '.join(unique_to_1[:3])}, whereas '{doc2_title}' addresses {', '.join(unique_to_2[:3])}.")
+        else:
+            differences.append(f"'{doc1_title}' and '{doc2_title}' emphasize different specific sub-topics within their respective descriptions.")
+
+        differences.append(f"Primary focus divergence: '{doc1_title}' emphasizes '{doc1_concepts[0] if doc1_concepts else 'foundational concepts'}', while '{doc2_title}' focuses on '{doc2_concepts[0] if doc2_concepts else 'its focal subject'}'.")
+        differences.append(f"Structural difference: '{doc1_title}' contains {len(sents1)} identifiable text segments, while '{doc2_title}' contains {len(sents2)} segments.")
+
+        unique_points = {
+            doc1_title: [
+                sents1[0] if len(sents1) > 0 else f"Core focus on {', '.join(doc1_concepts)}.",
+                sents1[min(1, len(sents1)-1)] if len(sents1) > 1 else doc1_result
+            ],
+            doc2_title: [
+                sents2[0] if len(sents2) > 0 else f"Core focus on {', '.join(doc2_concepts)}.",
+                sents2[min(1, len(sents2)-1)] if len(sents2) > 1 else doc2_result
+            ]
+        }
+
+        overall_synthesis = (
+            f"Comparing '{doc1_title}' with '{doc2_title}' highlights distinct focal points: "
+            f"'{doc1_title}' details {', '.join(doc1_concepts[:2])}, "
+            f"whereas '{doc2_title}' analyzes {', '.join(doc2_concepts[:2])}. "
+            f"Each document provides unique empirical context grounded strictly in its respective source content."
+        )
+
+        # Multi-language translation if requested
+        if canonical_lang in {LANG_TAMIL, LANG_HINDI, LANG_TANGLISH}:
+            for row in comparison_matrix:
+                row["doc1"] = DemoIntelligenceService.translate_text(row["doc1"], canonical_lang)
+                row["doc2"] = DemoIntelligenceService.translate_text(row["doc2"], canonical_lang)
+            similarities = [DemoIntelligenceService.translate_text(s, canonical_lang) for s in similarities]
+            differences = [DemoIntelligenceService.translate_text(d, canonical_lang) for d in differences]
+            translated_unique = {}
+            for k, pts in unique_points.items():
+                translated_unique[k] = [DemoIntelligenceService.translate_text(p, canonical_lang) for p in pts]
+            unique_points = translated_unique
+            overall_synthesis = DemoIntelligenceService.translate_text(overall_synthesis, canonical_lang)
+
+        return {
+            "doc1_title": doc1_title,
+            "doc2_title": doc2_title,
+            "comparison_matrix": comparison_matrix,
+            "similarities": similarities,
+            "differences": differences,
+            "unique_points": unique_points,
+            "overall_synthesis": overall_synthesis
+        }

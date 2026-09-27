@@ -648,59 +648,82 @@ Return a valid JSON:
         return DemoIntelligenceService.generate_research_analysis(document_text, title)
 
     async def compare_documents(self, docs_data: List[Dict[str, str]], language: str = "English") -> Dict[str, Any]:
+        if not docs_data:
+            return DemoIntelligenceService.compare_documents(docs_data, language)
+
         doc1 = docs_data[0]
         doc2 = docs_data[1] if len(docs_data) > 1 else docs_data[0]
+        doc1_title = doc1.get("title", "Document 1")
+        doc2_title = doc2.get("title", "Document 2")
+        doc1_text = doc1.get("text", "")
+        doc2_text = doc2.get("text", "")
 
-        return {
-            "comparison_matrix": [
-                {
-                    "aspect": "Core Methodology",
-                    "doc1": f"{doc1.get('title')}: Focused on foundational architectural design.",
-                    "doc2": f"{doc2.get('title')}: Emphasizes implementation and quantitative evaluation."
-                },
-                {
-                    "aspect": "Dataset & Corpus",
-                    "doc1": "Domain-specific corpora and specialized technical inputs.",
-                    "doc2": "Broad standard benchmark metrics and operational observations."
-                },
-                {
-                    "aspect": "Primary Results",
-                    "doc1": "Achieves high precision and architectural simplicity.",
-                    "doc2": "Demonstrates robust scalability across real-world workflows."
-                },
-                {
-                    "aspect": "Limitations",
-                    "doc1": "Dependent on text quality and structured tokenization.",
-                    "doc2": "Compute resource constraints during high-load processing."
-                },
-                {
-                    "aspect": "Target Domain",
-                    "doc1": "Academic & theoretical foundation.",
-                    "doc2": "Applied industry & deployment execution."
-                }
-            ],
-            "similarities": [
-                "Both documents emphasize systematic evaluation against established baselines.",
-                "Both frameworks prioritize minimizing latency while preserving contextual integrity.",
-                "Both conclude that modular design improves long-term adaptability."
-            ],
-            "differences": [
-                f"'{doc1.get('title')}' primarily details theoretical concepts, whereas '{doc2.get('title')}' focuses on empirical metrics.",
-                "Different testing benchmarks and data distributions were utilized.",
-                "The target audiences range from technical researchers to operational practitioners."
-            ],
-            "unique_points": {
-                doc1.get('title', 'Doc 1'): [
-                    "Introduces original paradigm definitions.",
-                    "Emphasizes zero-redundancy workflow."
-                ],
-                doc2.get('title', 'Doc 2'): [
-                    "Includes detailed cross-validation benchmarks.",
-                    "Outlines concrete next steps for enterprise adoption."
-                ]
-            },
-            "overall_synthesis": f"Comparing '{doc1.get('title')}' and '{doc2.get('title')}' reveals complementary insights: the former delivers the theoretical bedrock while the latter bridges the gap into practical evaluation."
-        }
+        canonical_lang = normalize_language(language)
+        script_name = get_script_name(canonical_lang)
+
+        prompt = f"""You are an expert AI document comparison engine.
+Perform a detailed comparative analysis between the following two specific documents based ONLY on their provided text content.
+
+DOCUMENT 1:
+Title: {doc1_title}
+Content:
+{doc1_text[:6000]}
+
+DOCUMENT 2:
+Title: {doc2_title}
+Content:
+{doc2_text[:6000]}
+
+CRITICAL INSTRUCTIONS:
+1. Every comparison dimension MUST reflect the ACTUAL concepts, methods, empirical findings, and data from these specific documents.
+2. DO NOT use generic placeholder text or generic comparisons.
+3. Compare across these dimensions: "Core Methodology", "Key Concepts", "Dataset / Evidence", "Main Results", "Limitations", "Conclusions".
+4. The output language MUST BE {canonical_lang} using {script_name}.
+5. Return ONLY a valid JSON object matching the following structure:
+{{
+  "doc1_title": "{doc1_title}",
+  "doc2_title": "{doc2_title}",
+  "comparison_matrix": [
+    {{"aspect": "Core Methodology", "doc1": "Document 1 specific methodology", "doc2": "Document 2 specific methodology"}},
+    {{"aspect": "Key Concepts", "doc1": "Document 1 specific key concepts", "doc2": "Document 2 specific key concepts"}},
+    {{"aspect": "Dataset / Evidence", "doc1": "Document 1 dataset or evidentiary basis", "doc2": "Document 2 dataset or evidentiary basis"}},
+    {{"aspect": "Main Results", "doc1": "Document 1 primary findings/results", "doc2": "Document 2 primary findings/results"}},
+    {{"aspect": "Limitations", "doc1": "Document 1 identified limitations", "doc2": "Document 2 identified limitations"}},
+    {{"aspect": "Conclusions", "doc1": "Document 1 final conclusions", "doc2": "Document 2 final conclusions"}}
+  ],
+  "similarities": [
+    "Specific similarity 1 grounded in both documents",
+    "Specific similarity 2 grounded in both documents",
+    "Specific similarity 3 grounded in both documents"
+  ],
+  "differences": [
+    "Specific difference 1 contrasting Document 1 and Document 2",
+    "Specific difference 2 contrasting Document 1 and Document 2",
+    "Specific difference 3 contrasting Document 1 and Document 2"
+  ],
+  "unique_points": {{
+    "{doc1_title}": [
+      "Unique attribute or claim 1 exclusive to Document 1",
+      "Unique attribute or claim 2 exclusive to Document 1"
+    ],
+    "{doc2_title}": [
+      "Unique attribute or claim 1 exclusive to Document 2",
+      "Unique attribute or claim 2 exclusive to Document 2"
+    ]
+  }},
+  "overall_synthesis": "Comprehensive comparative summary highlighting how these two specific documents relate, diverge, and complement each other."
+}}
+"""
+        response_text = await self._call_llm(prompt)
+        parsed = self._extract_json(response_text)
+        if parsed and isinstance(parsed.get("comparison_matrix"), list) and len(parsed["comparison_matrix"]) > 0:
+            if not parsed.get("doc1_title"):
+                parsed["doc1_title"] = doc1_title
+            if not parsed.get("doc2_title"):
+                parsed["doc2_title"] = doc2_title
+            return parsed
+
+        return DemoIntelligenceService.compare_documents(docs_data, language)
 
     async def _call_llm(self, prompt: str) -> str:
         provider = config.active_provider

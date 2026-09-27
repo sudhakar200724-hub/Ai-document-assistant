@@ -261,6 +261,8 @@ class CompareResponse(BaseModel):
     differences: List[str]
     unique_points: Dict[str, List[str]]
     overall_synthesis: str
+    doc1_title: Optional[str] = None
+    doc2_title: Optional[str] = None
 
 
 # --- Concept Map Schemas ---
